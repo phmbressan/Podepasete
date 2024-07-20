@@ -103,8 +103,8 @@ int main(int argc, char *argv[]) {
     PDP7 cpu;
     initialize_pdp7(&cpu);
 
-    char *program_file = "program.dat";
-    char *memory_file = "memory.dat";
+    const char *program_file = "program.dat";
+    const char *memory_file = "memory.dat";
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-d") == 0) {
@@ -288,13 +288,16 @@ void decode_instruction(PDP7 *cpu, uint32_t instruction) {
                     printf(">>> ");
                     char input_char;
                     scanf(" %c", &input_char);
-                    cpu->accumulator = input_char;
+                    cpu->accumulator = (uint32_t)input_char;
                     break;
                 case IOT_TLS:
                     // Load teleprinter buffer and select, clear teleprinter flag
                     printf("%c", cpu->accumulator & 0xFF); // Print the character in AC
                     break;
-                }
+                default: 
+                    fprintf(stderr, "Unknown I/O instruction: %o\n", instruction);
+                    exit(1);
+            }
             break;
         case OP_OPR:
             // Operate instructions
