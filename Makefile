@@ -1,33 +1,80 @@
+# Compiler
 CC = gcc
-ARM = arm-none-eabi-gcc
-CFLAGS = -Wall -Wextra -Wfloat-equal -Wundef -Wunused -Wshadow -Wunreachable-code -Wconversion -Wpointer-arith -Wcast-align -Wstrict-prototypes -Wstrict-overflow=5 -Wwrite-strings -Waggregate-return -Wcast-qual -Wswitch-default -Wswitch-enum
-SRC = src
-PROG = data/program.dat
-MEM = data/memory.dat
-OPT = -O3
+ARM_CC = arm-none-eabi-gcc
 
-clear: $(SRC)/main.out
-	rm src/main.out
+# Compiler flags
+CFLAGS = -Wall -Wextra -I./src -I./tests -I/usr/include/SDL2
+LDFLAGS = -lSDL2
 
-build: $(SRC)/main.c
-	$(CC) $(CFLAGS) -o $(SRC)/main.out $(SRC)/main.c
+# Directories
+SRCDIR = src
+TESTDIR = tests
+FIXTUREDIR = $(TESTDIR)/fixtures
+UTILDIR = $(TESTDIR)/utils
+BUILDDIR = build
+BINDIR = bin
+OBJDIR = $(BUILDDIR)/obj
+ASMDIR = $(BUILDDIR)/assembly
+TESTOBJDIR = $(OBJDIR)/test
 
-build-release: $(SRC)/main.c
-	$(CC) $(CFLAGS) -o $(SRC)/main.out $(SRC)/main.c $(OPT)
+# Source files
+SRC = $(wildcard $(SRCDIR)/*.c)
+TEST_SRC = $(wildcard $(TESTDIR)/unit/*.c)
+FIXTURE_SRC = $(wildcard $(FIXTUREDIR)/*.c)
+UTIL_SRC = $(wildcard $(UTILDIR)/*.c)
+OBJ = $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o, $(SRC))
+TEST_OBJ = $(patsubst $(TESTDIR)/unit/%.c, $(TESTOBJDIR)/%.o, $(TEST_SRC)) \
+           $(patsubst $(FIXTUREDIR)/%.c, $(TESTOBJDIR)/%.o, $(FIXTURE_SRC)) \
+           $(patsubst $(UTILDIR)/%.c, $(TESTOBJDIR)/%.o, $(UTIL_SRC))
+ASM = $(patsubst $(SRCDIR)/%.c, $(ASMDIR)/%.s, $(SRC))
 
-assemble: $(SRC)/main.c
-	$(CC) $(CFLAGS) -S -o $(SRC)/main.s $(SRC)/main.c
+# Executable names
+TARGET = $(BINDIR)/pdp7_emulator
+TEST_TARGET = $(BINDIR)/pdp7_tests
 
-arm-assemble: $(SRC)/main.c
-	$(ARM) $(CFLAGS) -S -o $(SRC)/main-arm.s $(SRC)/main.c
+# Default data files
+PROG_FILE = data/program.dat
+MEM_FILE = data/memory.dat
 
-run: build
-	./$(SRC)/main.out -p $(PROG) -m $(MEM)
+# Rules
+all: $(TARGET) $(ASM) $(TEST_TARGET)
 
-debug: build
-	./$(SRC)/main.out -d -p $(PROG) -m $(MEM)
+$(TARGET): $(OBJ)
+	@mkdir -p $(BINDIR)
+	$(CC) $(OBJ) -o $(TARGET) $(LDFLAGS)
 
-run-release: build-release
-	./$(SRC)/main.out -p $(PROG) -m $(MEM)
+$(OBJDIR)/%.o: $(SRCDIR)/%.c
+	@mkdir -p $(OBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
 
-.PHONY: build run
+$(ASMDIR)/%.s: $(SRCDIR)/%.c
+	@mkdir -p $(ASMDIR)
+	$(CC) $(CFLAGS) -S $< -o $@
+
+clean:
+	rm -rf $(BUILDDIR)
+
+debug: $(TARGET)
+	@$(TARGET) -p $(PROG_FILE) -m $(MEM_FILE) -d
+
+# Test rules
+$(TEST_TARGET): $(TEST_OBJ)
+	@mkdir -p $(BINDIR)
+	$(CC) $(TEST_OBJ) build/obj/pdp7_cpu.o build/obj/teleprinter.o -o $(TEST_TARGET) $(LDFLAGS)
+
+$(TESTOBJDIR)/%.o: $(TESTDIR)/unit/%.c
+	@mkdir -p $(TESTOBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(TESTOBJDIR)/%.o: $(FIXTUREDIR)/%.c
+	@mkdir -p $(TESTOBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(TESTOBJDIR)/%.o: $(UTILDIR)/%.c
+	@mkdir -p $(TESTOBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+test: $(TEST_TARGET)
+	@./$(TEST_TARGET)
+
+.PHONY: all clean debug test
