@@ -28,6 +28,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    start_teleprinter();
+
     // Load instruction memory from file
     load_memory_from_file(&cpu, program_file, INSTRUCTION_START);
 

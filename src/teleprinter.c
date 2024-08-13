@@ -7,6 +7,7 @@ const int FONT_WIDTH = 5;
 const int FONT_HEIGHT = 7;
 const int X_SEP = 1;
 const int Y_SEP = 1; 
+volatile uint32_t teleprinter_buffer = 0;
 
 const uint8_t FONT_MAP[64][7] = {
     [0]  = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // ' '
@@ -21,7 +22,7 @@ const uint8_t FONT_MAP[64][7] = {
 	[9]  = {0x00, 0x41, 0x22, 0x1c, 0x00, 0x00, 0x00}, // ')'
 	[10] = {0x14, 0x08, 0x3e, 0x08, 0x14, 0x00, 0x00}, // '*'
 	[11] = {0x08, 0x08, 0x3e, 0x08, 0x08, 0x00, 0x00}, // '+'
-	[12] = {0x00, 0x50, 0x30, 0x00, 0x00, 0x00, 0x00}, // ',
+	[12] = {0x00, 0x50, 0x30, 0x00, 0x00, 0x00, 0x00}, // ','
 	[13] = {0x08, 0x08, 0x08, 0x08, 0x08, 0x00, 0x00}, // '-'
 	[14] = {0x00, 0x60, 0x60, 0x00, 0x00, 0x00, 0x00}, // '.'
 	[15] = {0x20, 0x10, 0x08, 0x04, 0x02, 0x00, 0x00}, // '/'
@@ -173,78 +174,126 @@ void handle_instruction(uint32_t instruction, SDL_Renderer *renderer, int *mode)
     }
 }
 
-// int main(int argc, char *argv[]) {
-//     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-//         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-//         return 1;
-//     }
 
-//     SDL_Window *window = SDL_CreateWindow("340 Display", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
-//     if (window == NULL) {
-//         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
-//         SDL_Quit();
-//         return 1;
-//     }
+void print_teleprinter(SDL_Renderer* renderer, int* mode){
+    handle_instruction(0b000110000000000000, renderer, &mode);
+    for(int i=0; i<=2; i++){
+        uint8_t current_char = teleprinter_buffer % 8;
+        int_to_char(current_char);
+        teleprinter_buffer /= 8;
+    }
+    teleprinter_buffer = 0;
+}
 
-//     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-//     if (renderer == NULL) {
-//         printf("Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
-//         SDL_DestroyWindow(window);
-//         SDL_Quit();
-//         return 1;
-//     }
+uint8_t int_to_char(uint8_t single){
+    uint8_t output;
 
-//     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-//     SDL_RenderClear(renderer);
+    switch (single) {
+        case 0:
+            output = 16;
+            break;
+        case 1:
+            output = 17;
+            break;
+        case 2:
+            output = 18;
+            break;
+        case 3:
+            output = 19;
+            break;
+        case 4:
+            output = 20;
+            break;
+        case 5:
+            output = 21;
+            break;
+        case 6:
+            output = 22;
+            break;
+        case 7:
+            output = 23;
+            break;
+        case 8:
+            output = 24;
+            break;
+        case 9:
+            output = 25;
+            break;
+        default: 
+            printf("char not recognized!");
+    }
 
-//     bool quit = false;
-//     SDL_Event e;
-//     int mode = 0;
+    return output;
+}
 
-//     uint32_t instructions[] = {
-//         // Parameter mode to Point mode
-//         0b000010000000000000, // Mode change to Point mode
-//         0b000010011000000000, // Point mode: lit point at x=512
-//         0b011000011000000000, // Point mode: lit point at y=512
-//         // Point mode to Vector mode
-//         0b010100000001000000, // Vector mode: draw a line dx=32, dy=32, lit
-//         0b010000000001000000, // Vector mode: draw a line dx=0, dy=64, lit
-//         0b111100000000000000, // Vector mode: draw a line dx=-32, dy=0, lit
-//         // Return to parameter mode
-//         0b000110000000000000, // Mode change to Char mode
-//         0b000000000001000010,
-//         0b000011000100000101,
-//         0b000110000111001000,
-//         0b000011000100000101,
-//         0b100001100010100011,
-//         0b100001100010100011,
-//         0b100001100010100011,
-//         0b100001100010100011,
-//         0b100001100010100011,
-//         0b100000001111111100
-//     };
+ int start_teleprinter() {
+     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+         return 1;
+     }
+     SDL_Window *window = SDL_CreateWindow("340 Display", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+     if (window == NULL) {
+         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
+         SDL_Quit();
+         return 1;
+     }
+     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+     if (renderer == NULL) {
+         printf("Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
+         SDL_DestroyWindow(window);
+         SDL_Quit();
+         return 1;
+     }
+     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+     SDL_RenderClear(renderer);
+     bool quit = false;
+     SDL_Event e;
+     int mode = 0;
+    //  uint32_t instructions[] = {
+    //      // Parameter mode to Point mode
+    //      0b000010000000000000, // Mode change to Point mode
+    //      0b000010011000000000, // Point mode: lit point at x=512
+    //      0b011000011000000000, // Point mode: lit point at y=512
+    //      // Point mode to Vector mode
+    //      0b010100000001000000, // Vector mode: draw a line dx=32, dy=32, lit
+    //      0b010000000001000000, // Vector mode: draw a line dx=0, dy=64, lit
+    //      0b111100000000000000, // Vector mode: draw a line dx=-32, dy=0, lit
+    //      // Return to parameter mode
+    //      0b000110000000000000, // Mode change to Char mode
+    //      0b000000000001000010,
+    //      0b000011000100000101,
+    //      0b000110000111001000,
+    //      0b000011000100000101,
+    //      0b100001100010100011,
+    //      0b100001100010100011,
+    //      0b100001100010100011,
+    //      0b100001100010100011,
+    //      0b100001100010100011,
+    //      0b100000001111111100
+    //  };
+    // size_t instruction_count = sizeof(instructions) / sizeof(instructions[0]);
+    // size_t instruction_index = 0;
+    //  while (!quit) {
+    //      while (SDL_PollEvent(&e) != 0) {
+    //          if (e.type == SDL_QUIT) {
+    //              quit = true;
+    //          }
+    //      }
+    //      if (instruction_index < instruction_count) {
+    //          uint32_t instruction = instructions[instruction_index++];
+    //          handle_instruction(instruction, renderer, &mode);
+    //          SDL_RenderPresent(renderer);
+    //          SDL_Delay(500); // Delay to visually distinguish each instruction
+    //      }
+    //  }
+    while (1){
+        if (teleprinter_buffer == 0) {continue;}
+        print_teleprinter(renderer, &mode);
+        handle_instruction(0b000000000000000000, renderer, &mode);
+    }
 
-//     size_t instruction_count = sizeof(instructions) / sizeof(instructions[0]);
-//     size_t instruction_index = 0;
-
-//     while (!quit) {
-//         while (SDL_PollEvent(&e) != 0) {
-//             if (e.type == SDL_QUIT) {
-//                 quit = true;
-//             }
-//         }
-
-//         if (instruction_index < instruction_count) {
-//             uint32_t instruction = instructions[instruction_index++];
-//             handle_instruction(instruction, renderer, &mode);
-//             SDL_RenderPresent(renderer);
-//             SDL_Delay(500); // Delay to visually distinguish each instruction
-//         }
-//     }
-
-//     SDL_DestroyRenderer(renderer);
-//     SDL_DestroyWindow(window);
-//     SDL_Quit();
-
-//     return 0;
-// }
+     SDL_DestroyRenderer(renderer);
+     SDL_DestroyWindow(window);
+     SDL_Quit();
+     return 0;
+ }

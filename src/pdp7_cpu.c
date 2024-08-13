@@ -77,6 +77,7 @@
 #define IOT_KRB 0700312
 #define IOT_TLS 0700406
 
+
 void initialize_pdp7(PDP7 *cpu) {
     cpu->accumulator = 0;
     for (int i = 0; i < MEMORY_SIZE; ++i) {
@@ -115,7 +116,7 @@ void load_memory_from_file(PDP7 *cpu, const char *filename, uint32_t start_addre
 uint32_t get_effective_address(PDP7* cpu, uint32_t address, bool indirect) {
     if (indirect) {
         cpu->cycles++;
-        // Single level of indirection
+        // Single level of indirections
         return cpu->memory[address & 017777];
     } else {
         return address;
@@ -157,7 +158,7 @@ void execute_instruction(PDP7* cpu, uint32_t instruction) {
         case OP_JMS:
             // Jump to subroutine
             cpu->memory[cpu->memory_address] = cpu->pc + (cpu->link << 17);
-            cpu->pc = cpu->memory_address + 1;
+            cpu->pc = cpu->memory_address + 1 + INSTRUCTION_START;
             cpu->cycles += 2;
             break;
         case OP_DZM:
@@ -187,7 +188,7 @@ void execute_instruction(PDP7* cpu, uint32_t instruction) {
         case OP_TAD:
             cpu->accumulator += cpu->memory[cpu->memory_address];
             cpu->link = cpu->accumulator >> 18; // Save carry in link
-            cpu->accumulator = (cpu->accumulator + cpu->link) & 0777777;
+            cpu->accumulator = (cpu->accumulator) & 0777777;
             cpu->cycles += 2;
             break;
         case OP_XCT:
@@ -219,7 +220,7 @@ void execute_instruction(PDP7* cpu, uint32_t instruction) {
             break;
         case OP_JMP:
             // Jump
-            cpu->pc = cpu->memory_address;
+            cpu->pc = cpu->memory_address + INSTRUCTION_START;
             cpu->cycles += 1;
             break;
         case OP_IOT:
@@ -234,7 +235,8 @@ void execute_instruction(PDP7* cpu, uint32_t instruction) {
                     break;
                 case IOT_TLS:
                     // Load teleprinter buffer and select, clear teleprinter flag
-                    printf("%c", cpu->accumulator & 0xFF); // Print the character in AC
+                    teleprinter_buffer = cpu->accumulator;
+                    printf("\n %o\n", cpu->accumulator); // Print the character in AC
                     break;
                 default: 
                     fprintf(stderr, "Unknown I/O instruction: %o\n", cpu->ir);
