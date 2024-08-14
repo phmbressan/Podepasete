@@ -3,7 +3,25 @@ CC = gcc
 ARM_CC = arm-none-eabi-gcc
 
 # Compiler flags
-CFLAGS = -Wall -Wextra -I./src -I./tests -I/usr/include/SDL2
+CFLAGS = -I./src -I./tests -I/usr/include/SDL2
+CFLAGS += -W
+CFLAGS += -Wall
+CFLAGS += -Wextra
+CFLAGS += -Wformat
+CFLAGS += -Wmissing-braces
+CFLAGS += -Wno-cast-align
+CFLAGS += -Wparentheses
+CFLAGS += -Wshadow
+CFLAGS += -Wno-sign-compare
+CFLAGS += -Wswitch
+CFLAGS += -Wuninitialized
+CFLAGS += -Wunknown-pragmas
+CFLAGS += -Wunused-function
+CFLAGS += -Wunused-label
+CFLAGS += -Wunused-parameter
+CFLAGS += -Wunused-value
+CFLAGS += -Wunused-variable
+CFLAGS += -Wmissing-prototypes
 LDFLAGS = -lSDL2
 
 # Directories
@@ -55,26 +73,26 @@ clean:
 	rm -rf $(BUILDDIR)
 
 debug: $(TARGET)
-	@$(TARGET) -p $(PROG_FILE) -m $(MEM_FILE) -d
+	@$(TARGET) -p $(PROG_FILE) -m $(MEM_FILE) -d -t -s
 
 # Test rules
-$(TEST_TARGET): $(TEST_OBJ)
-	@mkdir -p $(BINDIR)
-	$(CC) $(TEST_OBJ) build/obj/pdp7_cpu.o build/obj/teleprinter.o -o $(TEST_TARGET) $(LDFLAGS)
+# $(TEST_TARGET): $(TEST_OBJ)
+# 	@mkdir -p $(BINDIR)
+# 	$(CC) $(TEST_OBJ) build/obj/pdp7_cpu.o build/obj/teleprinter.o -o $(TEST_TARGET) $(LDFLAGS)
 
-$(TESTOBJDIR)/%.o: $(TESTDIR)/unit/%.c
-	@mkdir -p $(TESTOBJDIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+# $(TESTOBJDIR)/%.o: $(TESTDIR)/unit/%.c
+# 	@mkdir -p $(TESTOBJDIR)
+# 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(TESTOBJDIR)/%.o: $(FIXTUREDIR)/%.c
-	@mkdir -p $(TESTOBJDIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+# $(TESTOBJDIR)/%.o: $(FIXTUREDIR)/%.c
+# 	@mkdir -p $(TESTOBJDIR)
+# 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(TESTOBJDIR)/%.o: $(UTILDIR)/%.c
-	@mkdir -p $(TESTOBJDIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+# $(TESTOBJDIR)/%.o: $(UTILDIR)/%.c
+# 	@mkdir -p $(TESTOBJDIR)
+# 	$(CC) $(CFLAGS) -c $< -o $@
 
-test: $(TEST_TARGET)
-	@./$(TEST_TARGET)
+# test: $(TEST_TARGET)
+# 	@./$(TEST_TARGET)
 
 .PHONY: all clean debug test

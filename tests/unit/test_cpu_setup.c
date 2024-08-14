@@ -1,7 +1,7 @@
 #include "test_cpu_setup.h"
 
 void test_empty_pdp7(void) {
-    PDP7 sample_cpu = create_empty_cpu();
+    PDP7_cpu sample_cpu = create_empty_cpu();
 
     // Test that the CPU is initialized correctly
     assert_(sample_cpu.accumulator == 0, "Accumulator is not initialized to 0");
@@ -18,7 +18,7 @@ void test_empty_pdp7(void) {
 }
 
 void test_mem_load_pdp7(void) {
-    PDP7 sample_cpu = create_empty_cpu();
+    PDP7_cpu sample_cpu = create_empty_cpu();
 
     load_memory_from_file(&sample_cpu, "tests/fixtures/data/halt_program.dat", INSTRUCTION_START);
     load_memory_from_file(&sample_cpu, "tests/fixtures/data/sample_memory.dat", 0);

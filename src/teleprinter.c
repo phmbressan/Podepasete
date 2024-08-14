@@ -7,7 +7,6 @@ const int FONT_WIDTH = 5;
 const int FONT_HEIGHT = 7;
 const int X_SEP = 1;
 const int Y_SEP = 1; 
-volatile uint32_t teleprinter_buffer = 0;
 
 const uint8_t FONT_MAP[64][7] = {
     [0]  = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // ' '
@@ -71,10 +70,49 @@ const uint8_t FONT_MAP[64][7] = {
     [58] = {0x61, 0x51, 0x49, 0x45, 0x43, 0x00, 0x00}, // 'Z'
     [59] = {0x00, 0x7f, 0x41, 0x41, 0x00, 0x00, 0x00}, // '['
 	[60] = {0x02, 0x04, 0x08, 0x10, 0x20, 0x00, 0x00}, // '/'
-	[61] = {0x00, 0x41, 0x41, 0x7f, 0x00, 0x00, 0x00}, // ']'
-	[62] = {0x04, 0x02, 0x01, 0x02, 0x04, 0x00, 0x00}, // '^'
-	[63] = {0x40, 0x40, 0x40, 0x40, 0x40, 0x00, 0x00}  // '_'
+	[61] = {0x00, 0x41, 0x41, 0x7f, 0x00, 0x00, 0x00}, // ''
+	[62] = {0x04, 0x02, 0x01, 0x02, 0x04, 0x00, 0x00}, // '\n'
+	[63] = {0x40, 0x40, 0x40, 0x40, 0x40, 0x00, 0x00}  // '\0'
 };
+
+SDL_Renderer* start_SDL_renderer(void);
+void set_pixel(int x, int y, SDL_Renderer *renderer);
+void draw_char(int x, int y, uint8_t char_code, SDL_Renderer *renderer);
+void handle_instruction(uint32_t instruction, SDL_Renderer *renderer, int *mode);
+void print_teleprinter(teleprinter_340* teleprinter);
+uint8_t int_to_char(uint8_t single);
+
+SDL_Renderer* start_SDL_renderer(void) {
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+        exit(1);
+    }
+    SDL_Window *window = SDL_CreateWindow("340 Display", 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    if (window == NULL) {
+        printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
+        SDL_Quit();
+        exit(1);
+    }
+    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    if (renderer == NULL) {
+        printf("Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        exit(1);
+    }
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+
+    return renderer;
+}
+
+void initialize_teleprinter(teleprinter_340* teleprinter, uint32_t* io_buffer) {
+    SDL_Renderer *renderer = start_SDL_renderer();
+    teleprinter->running = true;
+    teleprinter->io_buffer = io_buffer;   
+    teleprinter->renderer = renderer;
+    teleprinter->mode = 0;
+}
 
 void set_pixel(int x, int y, SDL_Renderer *renderer) {
     SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
@@ -96,7 +134,7 @@ void draw_char(int x, int y, uint8_t char_code, SDL_Renderer *renderer) {
 }
 
 void handle_instruction(uint32_t instruction, SDL_Renderer *renderer, int *mode) {
-    printf("Processing instruction: %06o with mode %d\n", instruction, *mode); // Debug output for instruction
+    //printf("Processing instruction: %06o with mode %d\n", instruction, *mode); // Debug output for instruction
 
     switch (*mode) {
         case 0: // Parameter mode
@@ -125,19 +163,31 @@ void handle_instruction(uint32_t instruction, SDL_Renderer *renderer, int *mode)
             uint32_t curr_inst = instruction;
             uint8_t curr_char;
             bool escape = false;
+            bool next_line = false;
+            bool no_char = false;
             static int x_delta = 0, y_delta = 0;
 
             for (int i = 1; i <= 3; i++) {
                 curr_char = (curr_inst & 0x3F000) >> 12;
                 curr_inst = curr_inst << 6;
-                escape = (curr_char == 58);
+                escape = (curr_char == 63);
+                next_line = (curr_char == 62);
+                no_char = (curr_char == 61);
 
                 if (!escape) {
-                    draw_char(x_delta, y_delta, curr_char, renderer);
-                    x_delta += (FONT_WIDTH + X_SEP) * FONT_SIZE;
-                    if (x_delta >= SCREEN_WIDTH - FONT_SIZE * FONT_WIDTH) {
+                    if (next_line) {
                         x_delta = 0;
                         y_delta += (FONT_HEIGHT + Y_SEP) * FONT_SIZE;
+                    } else if (no_char) {
+                        continue;
+                    }
+                    else {
+                        draw_char(x_delta, y_delta, curr_char, renderer);
+                        x_delta += (FONT_WIDTH + X_SEP) * FONT_SIZE;
+                        if (x_delta >= SCREEN_WIDTH - FONT_SIZE * FONT_WIDTH) {
+                            x_delta = 0;
+                            y_delta += (FONT_HEIGHT + Y_SEP) * FONT_SIZE;
+                        }
                     }
                 } else {
                     *mode = 0;
@@ -145,7 +195,7 @@ void handle_instruction(uint32_t instruction, SDL_Renderer *renderer, int *mode)
                 }
             }
 
-            printf("Char mode: Instruction = %06o, Next mode = %d\n", instruction, *mode); // Debug output for char mode
+            //printf("Char mode: Instruction = %06o, Next mode = %d\n", instruction, *mode); // Debug output for char mode
             break;
         case 4: // Vector mode
         {
@@ -175,14 +225,51 @@ void handle_instruction(uint32_t instruction, SDL_Renderer *renderer, int *mode)
 }
 
 
-void print_teleprinter(SDL_Renderer* renderer, int* mode){
-    handle_instruction(0b000110000000000000, renderer, &mode);
-    for(int i=0; i<=2; i++){
-        uint8_t current_char = teleprinter_buffer % 8;
-        int_to_char(current_char);
-        teleprinter_buffer /= 8;
+void print_teleprinter(teleprinter_340* teleprinter) {
+    teleprinter->mode = 3;
+
+    uint32_t number = *teleprinter->io_buffer;
+    uint32_t instruction = 0;
+    uint8_t len_number = 0;
+
+    while (number != 0) {
+        number /= 8;
+        len_number++;
     }
-    teleprinter_buffer = 0;
+
+    uint8_t* number_array = (uint8_t*) malloc(len_number * sizeof(uint8_t));
+
+    number = *teleprinter->io_buffer;
+
+    for (int i = 0; i < len_number; i++) {
+        number_array[i] = number % 8;
+        number /= 8;
+    }
+
+    for (int i = len_number - 1, j = 0; i >= 0; i--, j++) {
+        uint8_t curr_char = int_to_char(number_array[i]);
+        instruction = (instruction << 6) | (curr_char);  
+    
+        if (j == 2) {
+            handle_instruction(instruction, teleprinter->renderer, &teleprinter->mode);
+            instruction = 0;
+            j = -1;
+        }
+    }
+
+    if (len_number % 3 != 0) {
+        int remaining = 3 - (len_number % 3);
+        while (remaining != 0) {
+            instruction = (instruction << 6) | 61;
+            remaining--;
+        }
+        handle_instruction(instruction, teleprinter->renderer, &teleprinter->mode);
+    }
+
+    free(number_array);
+
+    instruction = 0b1111110111101111101;
+    handle_instruction(instruction, teleprinter->renderer, &teleprinter->mode);
 }
 
 uint8_t int_to_char(uint8_t single){
@@ -226,74 +313,28 @@ uint8_t int_to_char(uint8_t single){
     return output;
 }
 
- int start_teleprinter() {
-     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-         return 1;
-     }
-     SDL_Window *window = SDL_CreateWindow("340 Display", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
-     if (window == NULL) {
-         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
-         SDL_Quit();
-         return 1;
-     }
-     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-     if (renderer == NULL) {
-         printf("Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
-         SDL_DestroyWindow(window);
-         SDL_Quit();
-         return 1;
-     }
-     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-     SDL_RenderClear(renderer);
-     bool quit = false;
-     SDL_Event e;
-     int mode = 0;
-    //  uint32_t instructions[] = {
-    //      // Parameter mode to Point mode
-    //      0b000010000000000000, // Mode change to Point mode
-    //      0b000010011000000000, // Point mode: lit point at x=512
-    //      0b011000011000000000, // Point mode: lit point at y=512
-    //      // Point mode to Vector mode
-    //      0b010100000001000000, // Vector mode: draw a line dx=32, dy=32, lit
-    //      0b010000000001000000, // Vector mode: draw a line dx=0, dy=64, lit
-    //      0b111100000000000000, // Vector mode: draw a line dx=-32, dy=0, lit
-    //      // Return to parameter mode
-    //      0b000110000000000000, // Mode change to Char mode
-    //      0b000000000001000010,
-    //      0b000011000100000101,
-    //      0b000110000111001000,
-    //      0b000011000100000101,
-    //      0b100001100010100011,
-    //      0b100001100010100011,
-    //      0b100001100010100011,
-    //      0b100001100010100011,
-    //      0b100001100010100011,
-    //      0b100000001111111100
-    //  };
-    // size_t instruction_count = sizeof(instructions) / sizeof(instructions[0]);
-    // size_t instruction_index = 0;
-    //  while (!quit) {
-    //      while (SDL_PollEvent(&e) != 0) {
-    //          if (e.type == SDL_QUIT) {
-    //              quit = true;
-    //          }
-    //      }
-    //      if (instruction_index < instruction_count) {
-    //          uint32_t instruction = instructions[instruction_index++];
-    //          handle_instruction(instruction, renderer, &mode);
-    //          SDL_RenderPresent(renderer);
-    //          SDL_Delay(500); // Delay to visually distinguish each instruction
-    //      }
-    //  }
-    while (1){
-        if (teleprinter_buffer == 0) {continue;}
-        print_teleprinter(renderer, &mode);
-        handle_instruction(0b000000000000000000, renderer, &mode);
+void* run_teleprinter(void* teleprinter_arg) {
+    teleprinter_340* teleprinter = (teleprinter_340*) teleprinter_arg;
+    
+    SDL_Event event;
+    bool quit = false;
+
+    while (!quit) {
+        while (SDL_PollEvent(&event) != 0) {
+            if (event.type == SDL_QUIT) {
+                quit = true;
+            }
+        }
+        if (*teleprinter->io_buffer == 0) { continue; }
+
+        print_teleprinter(teleprinter);
+        SDL_RenderPresent(teleprinter->renderer);
+        *teleprinter->io_buffer = 0;
+        usleep(35000);
+        teleprinter->mode = 0;
     }
 
-     SDL_DestroyRenderer(renderer);
-     SDL_DestroyWindow(window);
-     SDL_Quit();
-     return 0;
+    SDL_DestroyRenderer(teleprinter->renderer);
+    SDL_Quit();
+    return NULL;
  }

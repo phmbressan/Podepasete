@@ -1,7 +1,7 @@
 #include "test_cpu_addressing.h"
 
 void test_direct_address(void) {
-    PDP7 cpu = create_cpu_with_memory();
+    PDP7_cpu cpu = create_cpu_with_memory();
 
     uint32_t addr1 = get_effective_address(&cpu, 00, false);
     uint32_t addr2 = get_effective_address(&cpu, 01, false);
@@ -13,7 +13,7 @@ void test_direct_address(void) {
 }
 
 void test_indirect_address(void) {
-    PDP7 cpu = create_cpu_with_memory();
+    PDP7_cpu cpu = create_cpu_with_memory();
 
     uint32_t addr1 = get_effective_address(&cpu, 00, true);
     uint32_t addr2 = get_effective_address(&cpu, 01, true);

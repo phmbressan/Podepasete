@@ -6,10 +6,12 @@
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 1024
 
-extern volatile uint32_t teleprinter_buffer;
+typedef struct {
+    bool running;
+    uint32_t* io_buffer;
+    SDL_Renderer* renderer;
+    int mode;
+} teleprinter_340;
 
-void set_pixel(int x, int y, SDL_Renderer *renderer);
-void draw_char(int x, int y, uint8_t char_code, SDL_Renderer *renderer);
-void handle_instruction(uint32_t instruction, SDL_Renderer *renderer, int *mode);
-uint8_t int_to_char(uint8_t single);
-int start_teleprinter();
+void* run_teleprinter(void* teleprinter_arg);
+void initialize_teleprinter(teleprinter_340* teleprinter, uint32_t* io_buffer);

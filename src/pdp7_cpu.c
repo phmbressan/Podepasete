@@ -1,5 +1,4 @@
 #include "pdp7_cpu.h"
-#include "teleprinter.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -77,8 +76,35 @@
 #define IOT_KRB 0700312
 #define IOT_TLS 0700406
 
+void load_memory_from_file(PDP7_cpu *cpu, const char *filename, uint32_t start_address);
+void perform_cycle(PDP7_cpu *cpu);
+void decode_instruction(PDP7_cpu *cpu, uint32_t instruction);
+void execute_instruction(PDP7_cpu* cpu, uint32_t instruction);
+void print_cpu_state(const PDP7_cpu *cpu);
+uint32_t get_effective_address(PDP7_cpu *cpu, uint32_t address, bool indirect);
 
-void initialize_pdp7(PDP7 *cpu) {
+void* run_cpu(void* arg) {
+    PDP7_cpu* cpu = (PDP7_cpu*)arg;
+    while (cpu->running) {
+        perform_cycle(cpu);
+
+        if (cpu->debug) {
+            print_cpu_state(cpu);
+        } else if (cpu->single_instruction) {
+            print_cpu_state(cpu);
+            printf("Press any key to continue, or ESC to exit\n");
+            char c;
+            scanf("%c", &c);
+            if (c == 27) {
+                break;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+void initialize_cpu(PDP7_cpu *cpu, const char* program_file, const char* memory_file, uint32_t* io_buffer, bool debug, bool single_instruction) {
     cpu->accumulator = 0;
     for (int i = 0; i < MEMORY_SIZE; ++i) {
         cpu->memory[i] = 0;
@@ -87,12 +113,21 @@ void initialize_pdp7(PDP7 *cpu) {
     cpu->memory_buffer = 0;
     cpu->pc = INSTRUCTION_START;
     cpu->ir = 0;
+    cpu->io_buffer = io_buffer;
     cpu->link = 0;
     cpu->cycles = 0;
     cpu->running = true;
+    cpu->debug = debug;
+    cpu->single_instruction = single_instruction;
+
+    // Load instruction memory from file
+    load_memory_from_file(cpu, program_file, INSTRUCTION_START);
+
+    // Load data memory from file
+    load_memory_from_file(cpu, memory_file, 0);
 }
 
-void load_memory_from_file(PDP7 *cpu, const char *filename, uint32_t start_address) {
+void load_memory_from_file(PDP7_cpu *cpu, const char *filename, uint32_t start_address) {
     FILE *file = fopen(filename, "r");
     if (!file) {
         printf("Failed to open file %s\n", filename);
@@ -113,7 +148,7 @@ void load_memory_from_file(PDP7 *cpu, const char *filename, uint32_t start_addre
 }
 
 // Fetch the effective address
-uint32_t get_effective_address(PDP7* cpu, uint32_t address, bool indirect) {
+uint32_t get_effective_address(PDP7_cpu* cpu, uint32_t address, bool indirect) {
     if (indirect) {
         cpu->cycles++;
         // Single level of indirections
@@ -123,7 +158,7 @@ uint32_t get_effective_address(PDP7* cpu, uint32_t address, bool indirect) {
     }
 }
 
-void perform_cycle(PDP7* cpu) {
+void perform_cycle(PDP7_cpu* cpu) {
     uint32_t instruction = cpu->memory[cpu->pc++];
 
     decode_instruction(cpu, instruction);
@@ -131,7 +166,7 @@ void perform_cycle(PDP7* cpu) {
     execute_instruction(cpu, instruction);
 }
 
-void decode_instruction(PDP7* cpu, uint32_t instruction) {
+void decode_instruction(PDP7_cpu* cpu, uint32_t instruction) {
     uint32_t opcode = (instruction >> 12) & 074; // First 4 bits
     uint32_t address = instruction & 017777; // Last 13 bits
     bool indirect = instruction & 020000; // Indirect bit (bit 5)
@@ -141,7 +176,7 @@ void decode_instruction(PDP7* cpu, uint32_t instruction) {
     cpu->memory_buffer = cpu->memory[cpu->memory_address];
 }
 
-void execute_instruction(PDP7* cpu, uint32_t instruction) {
+void execute_instruction(PDP7_cpu* cpu, uint32_t instruction) {
     switch (cpu->ir) {
         case OP_CAL:
             // Call subroutine and load accumulator
@@ -235,8 +270,10 @@ void execute_instruction(PDP7* cpu, uint32_t instruction) {
                     break;
                 case IOT_TLS:
                     // Load teleprinter buffer and select, clear teleprinter flag
-                    teleprinter_buffer = cpu->accumulator;
-                    printf("\n %o\n", cpu->accumulator); // Print the character in AC
+                    while (*cpu->io_buffer != 0);
+                    *cpu->io_buffer = cpu->accumulator;
+                    // printf("buf: %o\n", *cpu->io_buffer);
+                    // printf("\n %o\n", cpu->accumulator); // Print the character in AC
                     break;
                 default: 
                     fprintf(stderr, "Unknown I/O instruction: %o\n", cpu->ir);
@@ -406,7 +443,7 @@ void execute_instruction(PDP7* cpu, uint32_t instruction) {
 }
 
 // Print CPU state (for debugging)
-void print_cpu_state(const PDP7 *cpu) {
+void print_cpu_state(const PDP7_cpu *cpu) {
     printf("PC: %o | AC: %o | MEM_ADDR: %o | IR: %o | Cycles: %lu\n",
            cpu->pc, cpu->accumulator, cpu->memory_address, cpu->ir, cpu->cycles);
 }
