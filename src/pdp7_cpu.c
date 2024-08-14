@@ -46,32 +46,6 @@
 #define OPR_CLC  0750001 // Clear and complement AC
 #define OPR_GLK  0750020 // Get link
 
-// EAE Instructions
-#define EAE_LRS  0640500
-#define EAE_LRSS 0660500
-#define EAE_LLS  0640600
-#define EAE_LLSS 0660600
-#define EAE_ALS  0640700
-#define EAE_ALSS 0660700
-#define EAE_NORM 0640444
-#define EAE_NORMS 0660444
-#define EAE_MUL  0653122
-#define EAE_MULS 0657122
-#define EAE_DIV  0640323
-#define EAE_DIVS 0644323
-#define EAE_IDIV 0653323
-#define EAE_IDIVS 0657323
-#define EAE_FRDIV 0650323
-#define EAE_FRDIVS 0654323
-#define EAE_LACQ 0641002
-#define EAE_LACS 0641001
-#define EAE_CLQ  0650000
-#define EAE_ABS  0644000
-#define EAE_GSM  0664000
-#define EAE_OSC  0640001
-#define EAE_OMQ  0640002
-#define EAE_CMQ  0640004
-
 // I/O Instructions
 #define IOT_KRB 0700312
 #define IOT_TLS 0700406
@@ -120,11 +94,13 @@ void initialize_cpu(PDP7_cpu *cpu, const char* program_file, const char* memory_
     cpu->debug = debug;
     cpu->single_instruction = single_instruction;
 
-    // Load instruction memory from file
-    load_memory_from_file(cpu, program_file, INSTRUCTION_START);
+    if (program_file) {
+        load_memory_from_file(cpu, program_file, INSTRUCTION_START);
+    }
 
-    // Load data memory from file
-    load_memory_from_file(cpu, memory_file, 0);
+    if (memory_file) {
+        load_memory_from_file(cpu, memory_file, 0);
+    }
 }
 
 void load_memory_from_file(PDP7_cpu *cpu, const char *filename, uint32_t start_address) {
@@ -147,11 +123,10 @@ void load_memory_from_file(PDP7_cpu *cpu, const char *filename, uint32_t start_a
     fclose(file);
 }
 
-// Fetch the effective address
 uint32_t get_effective_address(PDP7_cpu* cpu, uint32_t address, bool indirect) {
     if (indirect) {
         cpu->cycles++;
-        // Single level of indirections
+        // Pointer indirection handling
         return cpu->memory[address & 017777];
     } else {
         return address;
@@ -262,18 +237,14 @@ void execute_instruction(PDP7_cpu* cpu, uint32_t instruction) {
             // Input/Output Transfer (stubbed)
             switch (instruction) {
                 case IOT_KRB:
-                    // Read the keyboard buffer into the AC, clear keyboard flag
                     printf(">>> ");
                     char input_char;
                     scanf(" %c", &input_char);
                     cpu->accumulator = (uint32_t)input_char;
                     break;
                 case IOT_TLS:
-                    // Load teleprinter buffer and select, clear teleprinter flag
                     while (*cpu->io_buffer != 0);
                     *cpu->io_buffer = cpu->accumulator;
-                    // printf("buf: %o\n", *cpu->io_buffer);
-                    // printf("\n %o\n", cpu->accumulator); // Print the character in AC
                     break;
                 default: 
                     fprintf(stderr, "Unknown I/O instruction: %o\n", cpu->ir);
@@ -442,7 +413,6 @@ void execute_instruction(PDP7_cpu* cpu, uint32_t instruction) {
     }
 }
 
-// Print CPU state (for debugging)
 void print_cpu_state(const PDP7_cpu *cpu) {
     printf("PC: %o | AC: %o | MEM_ADDR: %o | IR: %o | Cycles: %lu\n",
            cpu->pc, cpu->accumulator, cpu->memory_address, cpu->ir, cpu->cycles);

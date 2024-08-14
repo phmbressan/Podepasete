@@ -1,6 +1,9 @@
 #include "test_cpu_setup.h"
 #include "test_cpu_addressing.h"
 #include "test_cpu_decode.h"
+#include "test_cpu_execute.h"
+
+int main(void);
 
 int main() {
     printf("Running tests...\n");
@@ -12,6 +15,10 @@ int main() {
     test_indirect_address();
 
     test_instruction_parsing();
+
+    test_execute_add();
+    test_execute_tad();
+    test_execute_lac();
 
     printf("All tests passed!\n");
 

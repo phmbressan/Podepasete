@@ -22,6 +22,8 @@ CFLAGS += -Wunused-parameter
 CFLAGS += -Wunused-value
 CFLAGS += -Wunused-variable
 CFLAGS += -Wmissing-prototypes
+CFLAGS += -Wstrict-prototypes
+CFLAGS += -Wmissing-declarations
 LDFLAGS = -lSDL2
 
 # Directories
@@ -76,23 +78,23 @@ debug: $(TARGET)
 	@$(TARGET) -p $(PROG_FILE) -m $(MEM_FILE) -d -t -s
 
 # Test rules
-# $(TEST_TARGET): $(TEST_OBJ)
-# 	@mkdir -p $(BINDIR)
-# 	$(CC) $(TEST_OBJ) build/obj/pdp7_cpu.o build/obj/teleprinter.o -o $(TEST_TARGET) $(LDFLAGS)
+$(TEST_TARGET): $(TARGET) $(TEST_OBJ) 
+	@mkdir -p $(BINDIR)
+	$(CC) $(TEST_OBJ) build/obj/pdp7_cpu.o build/obj/teleprinter.o -o $(TEST_TARGET) $(LDFLAGS)
 
-# $(TESTOBJDIR)/%.o: $(TESTDIR)/unit/%.c
-# 	@mkdir -p $(TESTOBJDIR)
-# 	$(CC) $(CFLAGS) -c $< -o $@
+$(TESTOBJDIR)/%.o: $(TESTDIR)/unit/%.c
+	@mkdir -p $(TESTOBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# $(TESTOBJDIR)/%.o: $(FIXTUREDIR)/%.c
-# 	@mkdir -p $(TESTOBJDIR)
-# 	$(CC) $(CFLAGS) -c $< -o $@
+$(TESTOBJDIR)/%.o: $(FIXTUREDIR)/%.c
+	@mkdir -p $(TESTOBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# $(TESTOBJDIR)/%.o: $(UTILDIR)/%.c
-# 	@mkdir -p $(TESTOBJDIR)
-# 	$(CC) $(CFLAGS) -c $< -o $@
+$(TESTOBJDIR)/%.o: $(UTILDIR)/%.c
+	@mkdir -p $(TESTOBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# test: $(TEST_TARGET)
-# 	@./$(TEST_TARGET)
+test: $(TEST_TARGET)
+	@./$(TEST_TARGET)
 
 .PHONY: all clean debug test

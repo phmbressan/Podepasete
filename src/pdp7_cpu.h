@@ -24,3 +24,7 @@ typedef struct {
 
 void* run_cpu(void* arg);
 void initialize_cpu(PDP7_cpu *cpu, const char* program_file, const char* memory_file, uint32_t* io_buffer, bool debug, bool single_instruction);
+void load_memory_from_file(PDP7_cpu *cpu, const char *filename, uint32_t start_address);
+void decode_instruction(PDP7_cpu* cpu, uint32_t instruction);
+void execute_instruction(PDP7_cpu* cpu, uint32_t instruction);
+uint32_t get_effective_address(PDP7_cpu* cpu, uint32_t address, bool indirect);
