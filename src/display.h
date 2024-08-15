@@ -11,7 +11,7 @@ typedef struct {
     uint32_t* io_buffer;
     SDL_Renderer* renderer;
     int mode;
-} teleprinter_340;
+} display_340;
 
-void* run_teleprinter(void* teleprinter_arg);
-void initialize_teleprinter(teleprinter_340* teleprinter, uint32_t* io_buffer);
+void* run_display(void* display_arg);
+void initialize_display(display_340* display, uint32_t* io_buffer);

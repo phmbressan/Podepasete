@@ -4,14 +4,14 @@
 #include <string.h>
 #include <pthread.h>
 
-void run_pdp7(PDP7 *pdp7, bool use_teleprinter, const char *program_file, const char *memory_file, bool debug, bool single_instruction) {
+void run_pdp7(PDP7 *pdp7, bool use_display, const char *program_file, const char *memory_file, bool debug, bool single_instruction) {
     uint32_t io_buffer = 0;
 
     pthread_t threads[2]; 
 
-    if (use_teleprinter) {
-        initialize_teleprinter(&pdp7->teleprinter, &io_buffer);
-        pthread_create(&threads[0], NULL, run_teleprinter, &pdp7->teleprinter);
+    if (use_display) {
+        initialize_display(&pdp7->display, &io_buffer);
+        pthread_create(&threads[0], NULL, run_display, &pdp7->display);
     }
 
     initialize_cpu(&pdp7->cpu, program_file, memory_file, &io_buffer, debug, single_instruction);

@@ -7,7 +7,7 @@
 int main(int argc, char *argv[]) {
     bool debug = false;
     bool single_instruction = false;
-    bool use_teleprinter = false;
+    bool use_display = false;
 
     const char *program_file = "data/program.dat";
     const char *memory_file = "data/memory.dat";
@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
         if (strcmp(argv[i], "-d") == 0) {
             debug = true;
         } else if (strcmp(argv[i], "-t") == 0) {
-            use_teleprinter = true;
+            use_display = true;
         } else if (strcmp(argv[i], "-s") == 0) {
             single_instruction = true;
         } else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
 
     PDP7 pdp7_minicomputer;
 
-    run_pdp7(&pdp7_minicomputer, use_teleprinter, program_file, memory_file, debug, single_instruction);
+    run_pdp7(&pdp7_minicomputer, use_display, program_file, memory_file, debug, single_instruction);
 
     return EXIT_SUCCESS;
 }

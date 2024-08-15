@@ -1,4 +1,4 @@
-#include "teleprinter.h"
+#include "display.h"
 #include <stdio.h>
 #include <unistd.h>
 
@@ -79,7 +79,7 @@ SDL_Renderer* start_SDL_renderer(void);
 void set_pixel(int x, int y, SDL_Renderer *renderer);
 void draw_char(int x, int y, uint8_t char_code, SDL_Renderer *renderer);
 void handle_instruction(uint32_t instruction, SDL_Renderer *renderer, int *mode);
-void print_teleprinter(teleprinter_340* teleprinter);
+void print_display(display_340* display);
 uint8_t int_to_char(uint8_t single);
 
 SDL_Renderer* start_SDL_renderer(void) {
@@ -106,12 +106,12 @@ SDL_Renderer* start_SDL_renderer(void) {
     return renderer;
 }
 
-void initialize_teleprinter(teleprinter_340* teleprinter, uint32_t* io_buffer) {
+void initialize_display(display_340* display, uint32_t* io_buffer) {
     SDL_Renderer *renderer = start_SDL_renderer();
-    teleprinter->running = true;
-    teleprinter->io_buffer = io_buffer;   
-    teleprinter->renderer = renderer;
-    teleprinter->mode = 0;
+    display->running = true;
+    display->io_buffer = io_buffer;   
+    display->renderer = renderer;
+    display->mode = 0;
 }
 
 void set_pixel(int x, int y, SDL_Renderer *renderer) {
@@ -225,10 +225,10 @@ void handle_instruction(uint32_t instruction, SDL_Renderer *renderer, int *mode)
 }
 
 
-void print_teleprinter(teleprinter_340* teleprinter) {
-    teleprinter->mode = 3;
+void print_display(display_340* display) {
+    display->mode = 3;
 
-    uint32_t number = *teleprinter->io_buffer;
+    uint32_t number = *display->io_buffer;
     uint32_t instruction = 0;
     uint8_t len_number = 0;
 
@@ -239,7 +239,7 @@ void print_teleprinter(teleprinter_340* teleprinter) {
 
     uint8_t* number_array = (uint8_t*) malloc(len_number * sizeof(uint8_t));
 
-    number = *teleprinter->io_buffer;
+    number = *display->io_buffer;
 
     for (int i = 0; i < len_number; i++) {
         number_array[i] = number % 8;
@@ -251,7 +251,7 @@ void print_teleprinter(teleprinter_340* teleprinter) {
         instruction = (instruction << 6) | (curr_char);  
     
         if (j == 2) {
-            handle_instruction(instruction, teleprinter->renderer, &teleprinter->mode);
+            handle_instruction(instruction, display->renderer, &display->mode);
             instruction = 0;
             j = -1;
         }
@@ -263,13 +263,13 @@ void print_teleprinter(teleprinter_340* teleprinter) {
             instruction = (instruction << 6) | 61;
             remaining--;
         }
-        handle_instruction(instruction, teleprinter->renderer, &teleprinter->mode);
+        handle_instruction(instruction, display->renderer, &display->mode);
     }
 
     free(number_array);
 
     instruction = 0b1111110111101111101;
-    handle_instruction(instruction, teleprinter->renderer, &teleprinter->mode);
+    handle_instruction(instruction, display->renderer, &display->mode);
 }
 
 uint8_t int_to_char(uint8_t single){
@@ -313,8 +313,8 @@ uint8_t int_to_char(uint8_t single){
     return output;
 }
 
-void* run_teleprinter(void* teleprinter_arg) {
-    teleprinter_340* teleprinter = (teleprinter_340*) teleprinter_arg;
+void* run_display(void* display_arg) {
+    display_340* display = (display_340*) display_arg;
     
     SDL_Event event;
     bool quit = false;
@@ -325,16 +325,16 @@ void* run_teleprinter(void* teleprinter_arg) {
                 quit = true;
             }
         }
-        if (*teleprinter->io_buffer == 0) { continue; }
+        if (*display->io_buffer == 0) { continue; }
 
-        print_teleprinter(teleprinter);
-        SDL_RenderPresent(teleprinter->renderer);
-        *teleprinter->io_buffer = 0;
+        print_display(display);
+        SDL_RenderPresent(display->renderer);
+        *display->io_buffer = 0;
         usleep(35000);
-        teleprinter->mode = 0;
+        display->mode = 0;
     }
 
-    SDL_DestroyRenderer(teleprinter->renderer);
+    SDL_DestroyRenderer(display->renderer);
     SDL_Quit();
     return NULL;
  }

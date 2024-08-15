@@ -80,7 +80,7 @@ debug: $(TARGET)
 # Test rules
 $(TEST_TARGET): $(TARGET) $(TEST_OBJ) 
 	@mkdir -p $(BINDIR)
-	$(CC) $(TEST_OBJ) build/obj/pdp7_cpu.o build/obj/teleprinter.o -o $(TEST_TARGET) $(LDFLAGS)
+	$(CC) $(TEST_OBJ) build/obj/pdp7_cpu.o build/obj/display.o -o $(TEST_TARGET) $(LDFLAGS)
 
 $(TESTOBJDIR)/%.o: $(TESTDIR)/unit/%.c
 	@mkdir -p $(TESTOBJDIR)

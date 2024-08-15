@@ -1,7 +1,7 @@
 #pragma once
 
 #include "pdp7_cpu.h"
-#include "teleprinter.h"
+#include "display.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +9,7 @@
 
 typedef struct {
     PDP7_cpu cpu;
-    teleprinter_340 teleprinter;
+    display_340 display;
 } PDP7;
 
-void run_pdp7(PDP7 *pdp7, bool use_teleprinter, const char *program_file, const char *memory_file, bool debug, bool single_instruction);
+void run_pdp7(PDP7 *pdp7, bool use_display, const char *program_file, const char *memory_file, bool debug, bool single_instruction);
