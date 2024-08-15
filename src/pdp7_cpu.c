@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 // PDP-7 Opcodes in octal
 #define OP_CAL  000 // Call subroutine and load accumulator
@@ -50,27 +51,93 @@
 #define IOT_KRB 0700312
 #define IOT_TLS 0700406
 
+uint32_t program_start_address;
+
 void load_memory_from_file(PDP7_cpu *cpu, const char *filename, uint32_t start_address);
 void perform_cycle(PDP7_cpu *cpu);
 void decode_instruction(PDP7_cpu *cpu, uint32_t instruction);
 void execute_instruction(PDP7_cpu* cpu, uint32_t instruction);
 void print_cpu_state(const PDP7_cpu *cpu);
+void print_memory(const PDP7_cpu *cpu, uint32_t start, uint32_t end);
 uint32_t get_effective_address(PDP7_cpu *cpu, uint32_t address, bool indirect);
 
 void* run_cpu(void* arg) {
-    PDP7_cpu* cpu = (PDP7_cpu*)arg;
-    while (cpu->running) {
-        perform_cycle(cpu);
+    PDP7_cpu_options* cpu_options = (PDP7_cpu_options*)arg;
 
-        if (cpu->debug) {
-            print_cpu_state(cpu);
-        } else if (cpu->single_instruction) {
-            print_cpu_state(cpu);
-            printf("Press any key to continue, or ESC to exit\n");
-            char c;
-            scanf("%c", &c);
-            if (c == 27) {
-                break;
+    PDP7_cpu* cpu = &cpu_options->cpu;
+
+    if (!cpu_options->headless) {
+        print_cpu_state(cpu);
+        printf("Commands: [n]ext, [c]ontinue, [m]emory, [q]uit\n");
+
+        char command[10];
+        while (1) {
+            printf("> ");
+            if (fgets(command, sizeof(command), stdin)) {
+                command[strcspn(command, "\r\n")] = '\0';
+                if (strcmp(command, "n") == 0) {
+                    perform_cycle(cpu);
+                    print_cpu_state(cpu);
+                } else if (strcmp(command, "c") == 0) {
+                    while (cpu->running) {
+                        perform_cycle(cpu);
+                        if (cpu_options->debug) {
+                            print_cpu_state(cpu);
+                        }
+                    }
+                    break;
+                } else if (strcmp(command, "m") == 0) {
+                    uint32_t start, end;
+                    printf("Enter start address: ");
+                    scanf("%o", &start);
+                    printf("Enter end address: ");
+                    scanf("%o", &end);
+                    while (getchar() != '\n');
+                    print_memory(cpu, start, end);
+                } else if (strcmp(command, "q") == 0) {
+                    cpu->running = 0;
+                    break;
+                } else {
+                    printf("Unknown command. Please enter [n], [c], [m], [l], or [q].\n");
+                }
+            }
+        }
+    } else {
+        while (cpu->running) {
+            perform_cycle(cpu);
+            if (cpu_options->debug) {
+                print_cpu_state(cpu);
+            }
+        }
+    }
+
+    printf("CPU halted\n");
+    printf("Total cycles: %lu\n", cpu->cycles);
+
+    if (cpu_options->headless) {
+        printf("Press any key to quit.\n");
+        getchar();
+    } else {
+        printf("Commands: [m]emory, [q]uit\n");
+        char command[10];
+        while (1) {
+            printf("> ");
+            if (fgets(command, sizeof(command), stdin)) {
+                command[strcspn(command, "\r\n")] = '\0';
+                if (strcmp(command, "m") == 0) {
+                    uint32_t start, end;
+                    printf("Enter start address: ");
+                    scanf("%o", &start);
+                    printf("Enter end address: ");
+                    scanf("%o", &end);
+                    while (getchar() != '\n');
+                    print_memory(cpu, start, end);
+                } else if (strcmp(command, "q") == 0) {
+                    cpu->running = 0;
+                    break;
+                } else {
+                    printf("Unknown command. Please enter [m] or [q].\n");
+                }
             }
         }
     }
@@ -78,24 +145,24 @@ void* run_cpu(void* arg) {
     return NULL;
 }
 
-void initialize_cpu(PDP7_cpu *cpu, const char* program_file, const char* memory_file, uint32_t* io_buffer, bool debug, bool single_instruction) {
+void initialize_cpu(PDP7_cpu *cpu, const char* program_file, const char* memory_file, uint32_t* io_buffer, uint32_t start_address) {
+    *io_buffer = 0;
+    program_start_address = start_address;
     cpu->accumulator = 0;
     for (int i = 0; i < MEMORY_SIZE; ++i) {
         cpu->memory[i] = 0;
     }
     cpu->memory_address = 0;
     cpu->memory_buffer = 0;
-    cpu->pc = INSTRUCTION_START;
+    cpu->pc = start_address;
     cpu->ir = 0;
     cpu->io_buffer = io_buffer;
     cpu->link = 0;
     cpu->cycles = 0;
     cpu->running = true;
-    cpu->debug = debug;
-    cpu->single_instruction = single_instruction;
 
     if (program_file) {
-        load_memory_from_file(cpu, program_file, INSTRUCTION_START);
+        load_memory_from_file(cpu, program_file, start_address);
     }
 
     if (memory_file) {
@@ -110,14 +177,33 @@ void load_memory_from_file(PDP7_cpu *cpu, const char *filename, uint32_t start_a
         exit(1);
     }
 
+    char line[256];
     uint32_t address, word;
-    while (fscanf(file, "%o %o", &address, &word) == 2) {
-        if (address >= MEMORY_SIZE) {
-            fprintf(stderr, "Invalid address %o in file %s\n", address, filename);
-            fclose(file);
-            exit(1);
+
+    while (fgets(line, sizeof(line), file)) {
+        line[strcspn(line, "\r\n")] = '\0';
+
+        char *comment_start = strstr(line, "//");
+        if (comment_start) {
+            *comment_start = '\0';
         }
-        cpu->memory[start_address + address] = word;
+
+        if (strlen(line) == 0) {
+            continue;
+        }
+
+        if (sscanf(line, "%o %o", &address, &word) == 2) {
+            if (address >= MEMORY_SIZE) {
+                fprintf(stderr, "Invalid address %o in file %s\n", address, filename);
+                fclose(file);
+                exit(EXIT_FAILURE);
+            }
+            cpu->memory[start_address + address] = word;
+        } else {
+            fprintf(stderr, "Invalid format in file %s: %s\n", filename, line);
+            fclose(file);
+            exit(EXIT_FAILURE);
+        }
     }
 
     fclose(file);
@@ -168,7 +254,7 @@ void execute_instruction(PDP7_cpu* cpu, uint32_t instruction) {
         case OP_JMS:
             // Jump to subroutine
             cpu->memory[cpu->memory_address] = cpu->pc + (cpu->link << 17);
-            cpu->pc = cpu->memory_address + 1 + INSTRUCTION_START;
+            cpu->pc = cpu->memory_address + 1 + program_start_address;
             cpu->cycles += 2;
             break;
         case OP_DZM:
@@ -230,7 +316,7 @@ void execute_instruction(PDP7_cpu* cpu, uint32_t instruction) {
             break;
         case OP_JMP:
             // Jump
-            cpu->pc = cpu->memory_address + INSTRUCTION_START;
+            cpu->pc = cpu->memory_address + program_start_address;
             cpu->cycles += 1;
             break;
         case OP_IOT:
@@ -413,7 +499,45 @@ void execute_instruction(PDP7_cpu* cpu, uint32_t instruction) {
     }
 }
 
+void print_memory(const PDP7_cpu *cpu, uint32_t start, uint32_t end) {
+    if (start >= MEMORY_SIZE || end >= MEMORY_SIZE || start > end) {
+        printf("Invalid memory bounds\n");
+        return;
+    }
+
+    // Calculate the total number of rows needed
+    uint32_t row_start = start - (start % 8);  // Adjust start to the previous multiple of NUM_COLUMNS
+    uint32_t row_end = end + (8 - (end % 8)) - 1;  // Adjust end to the next multiple of NUM_COLUMNS - 1
+
+    if (row_end >= MEMORY_SIZE) {
+        row_end = MEMORY_SIZE - 1;  // Cap end to the maximum address
+    }
+
+    printf("Memory contents from %04" PRIo32 " to %04" PRIo32 ":\n", start, end);
+
+    for (uint32_t addr = row_start; addr <= row_end; addr += 8) {
+        printf("%04" PRIo32 ": ", addr);
+
+        for (uint32_t col = 0; col < 8; ++col) {
+            uint32_t current_addr = addr + col;
+            if (current_addr >= start && current_addr <= end) {
+                printf("%0*" PRIo32 " ", 6, cpu->memory[current_addr]);
+            } else {
+                printf("%*s ", 8, " ");  // Print spaces for out-of-bound addresses
+            }
+        }
+
+        printf("\n");
+    }
+}
+
 void print_cpu_state(const PDP7_cpu *cpu) {
-    printf("PC: %o | AC: %o | MEM_ADDR: %o | IR: %o | Cycles: %lu\n",
-           cpu->pc, cpu->accumulator, cpu->memory_address, cpu->ir, cpu->cycles);
+    const int WIDTH = 6;
+
+    printf("PC: %*o | AC: %*o | MA: %*o | IR: %*o | Cycles: %*lu\n",
+           WIDTH, cpu->pc,
+           WIDTH, cpu->accumulator,
+           WIDTH, cpu->memory_address,
+           WIDTH, cpu->ir,
+           WIDTH, cpu->cycles);
 }

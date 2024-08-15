@@ -1,12 +1,17 @@
-00000 000034
-00001 000000
-00002 000001
-00003 000000 
-00004 000000 
-00005 000000 
-00006 000022 
-00007 777776 
-00010 777777
-00020 000000
-00021 000000 
-00100 000076
+// Fibonacci sequence generator memory for the PDP7
+
+// Global variables
+00000 000034 // n numbers of fibonacci sequence
+00001 000000 // fib1 - first number of the sequence
+00002 000001 // fib2 - second number of the sequence
+00003 000000 // temp - temporary variable for addition
+00004 000000 // count - loop counter
+00005 000000 // next - next number of the sequence (fib1 + fib2)
+00006 000022 // seq_loc - current address to store the next (updated at each iteration)
+
+// Constants
+00007 777776 // -2 - constant
+00010 777777 // -1 - constant
+
+// Fibonacci vector
+00020 000000 // seq - start address to store the calculated fibonacci sequence

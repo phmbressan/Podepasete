@@ -75,7 +75,10 @@ clean:
 	rm -rf $(BUILDDIR)
 
 debug: $(TARGET)
-	@$(TARGET) -p $(PROG_FILE) -m $(MEM_FILE) -d -t -s
+	@$(TARGET) -p $(PROG_FILE) -m $(MEM_FILE) -d -t -a 2000
+
+run: $(TARGET)
+	@$(TARGET) -p $(PROG_FILE) -m $(MEM_FILE) -t -h -a 2000
 
 # Test rules
 $(TEST_TARGET): $(TARGET) $(TEST_OBJ) 

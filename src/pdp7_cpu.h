@@ -18,12 +18,16 @@ typedef struct {
     bool link;                       // Link Register (1-bit)
     uint64_t cycles;                 // Cycle counter
     bool running;                    // CPU running state
-    bool debug;                      // Debug mode
-    bool single_instruction;         // Single instruction mode
 } PDP7_cpu;
 
+typedef struct {
+    PDP7_cpu cpu;
+    bool debug;
+    bool headless;
+} PDP7_cpu_options;
+
 void* run_cpu(void* arg);
-void initialize_cpu(PDP7_cpu *cpu, const char* program_file, const char* memory_file, uint32_t* io_buffer, bool debug, bool single_instruction);
+void initialize_cpu(PDP7_cpu *cpu, const char* program_file, const char* memory_file, uint32_t* io_buffer, uint32_t start_address);
 void load_memory_from_file(PDP7_cpu *cpu, const char *filename, uint32_t start_address);
 void decode_instruction(PDP7_cpu* cpu, uint32_t instruction);
 void execute_instruction(PDP7_cpu* cpu, uint32_t instruction);
